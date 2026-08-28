@@ -1,0 +1,27 @@
+# Phase 4 — GPT-judge 설정 (⚠️ 코드 미구현. 부록에 그대로 인용할 수 있게 값을 고정해 둔다)
+name: gpt_judge
+phase: 4
+
+judge_model: gpt-4o          # 실행 시 정확한 버전 문자열과 날짜를 결과 파일에 기록할 것
+temperature: 0.0
+n_votes: 3                   # 다수결
+sample_size: 500             # 사람 평가(50쌍)보다 큰 표본
+
+judge_input:
+  # 판정자에게는 정답 근거를 주고 예측만 평가하게 한다. 메쉬 이미지는 주지 않는다.
+  include: [gt_muscle_activations, anchor_metadata, question, predicted_answer]
+  exclude: [mesh_render, gt_answer_text]   # GT 문장을 주면 문체 유사도로 판정해버린다
+
+rubric: |
+  다음 기준으로 예측 답변을 판정한다.
+  1) 사실 정확성: 언급한 근육명·수치·방향이 제공된 GT 와 일치하는가.
+  2) 기권 적절성: 데이터로 판단할 수 없는 질문에서 특정 원인을 단정하면 **오답**으로 처리한다.
+     (근육→형상은 비유일 역문제다. "관련 있다" 수준을 넘는 단정은 감점.)
+  3) 무근거 추가: GT 에 없는 물리 사실을 지어내면 오답.
+  판정은 correct / partially_correct / incorrect 중 하나와 한 줄 근거를 낸다.
+
+human_eval:
+  n_pairs: 50
+  raters: 3
+  set: novel_category
+  agreement: [human_human_kappa, human_gpt_kappa]   # judge 자체의 타당성 검증

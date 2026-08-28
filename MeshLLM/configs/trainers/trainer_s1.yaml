@@ -1,0 +1,36 @@
+name: trainer_s1
+class_name: TrainerS1
+
+output_dir: outputs/trainer_s1
+
+# DataLoader
+batch_size: 256
+eval_batch_size: 64
+num_workers: 0
+
+# Loop (SpiralNet++ defaults: Adam lr=1e-3, decay 0.99 / epoch)
+epochs: 500
+max_steps: null          # set an int to stop early (smoke tests)
+optimizer: Adam
+lr: 0.001
+weight_decay: 0.0
+lr_decay: 0.99
+decay_step: 1
+
+log_every: 50
+eval_every_epochs: 1
+save_every_epochs: 1
+
+device: null             # null → cuda if available else cpu
+seed: ${seed}
+
+# Weights & Biases
+wandb:
+  enabled: true
+  project: tongue-muscle
+  entity: null            # your wandb team/user, or null
+  name: null              # run name (null → auto)
+  mode: offline           # offline(기본, 로그인 불필요) | online(wandb 계정) | disabled
+  tags: [spiralnet, muscle]
+  notes: null
+  log_model: false        # upload best checkpoint as artifact

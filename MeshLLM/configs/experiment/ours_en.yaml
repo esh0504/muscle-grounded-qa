@@ -1,0 +1,19 @@
+# @package _global_
+# Phase 3 · P0 — Muscle-aware (ours), EN  [표의 주 row]
+# 근육 활성 회귀로 사전학습한 Stage-1 인코더를 동결해 mesh 표현으로 쓴다.
+
+name: ours_en
+phase: 3
+priority: P0
+output_dir: outputs/stage2/ours_en
+
+datasets:
+  lang: en
+  qa_glob: DATA/qa/en/nat_out/nat_*.jsonl
+  split: train
+  # ⚠️ EN≈KO 를 "언어 이식성"으로 주장하려면 두 row 의 데이터 예산이 같아야 한다.
+  # configs/experiment/ours_ko.yaml 과 동일하게 맞춘다 (variants·max_records·epochs·seed).
+  # 이 세 줄이 없으면 EN 은 variants 3종 × 상한 없음(≈890k)으로 학습돼 비교가 무효다.
+  variants: [0]
+  max_records: 240000
+  # 마스킹은 qa_dataset.yaml 기본값(full): r=0.5, τ=0.6, p_ctx=0.3

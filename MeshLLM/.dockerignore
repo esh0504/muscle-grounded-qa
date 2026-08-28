@@ -1,0 +1,9 @@
+# build context = MeshLLM root (see docker-compose.yml)
+DATA/
+outputs/
+checkpoints/
+.cache/
+**/__pycache__/
+*.pyc
+.env
+.git/

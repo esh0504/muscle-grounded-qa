@@ -1,0 +1,81 @@
+# 평가 설정 — DATA/unseentest/readme.md 의 3개 세트를 그대로 돌린다.
+#
+#   python eval.py +experiment=ours_en evaluators=unseen
+#   python eval.py +experiment=ours_en evaluators=unseen run.sets=[set2,set3]
+#   python eval.py +experiment=ours_en evaluators=unseen run.score_only=true  # 생성 없이 채점만
+#
+# 산출물: <output_dir>/Set1, Set2, Set3  (preds.jsonl · metrics.json, Set3 는 렌더 리포트까지)
+#
+# 어떤 모델을 평가할지는 `+experiment=<name>` 이 정한다 (모델 구성 + output_dir).
+# 체크포인트/출력 경로는 eval_s2.yaml 의 checkpoint / output_dir 로 덮어쓴다.
+
+name: unseen
+class_name: EvaluatorUnseen
+
+# 평가 출력 루트. null → <실험 output_dir>/eval (옛 eval.py 의 --output 에 해당).
+output_dir: null
+
+lang: en
+batch_size: 4
+
+generation:
+  max_new_tokens: 320
+  do_sample: false       # greedy — 채점 재현성을 위해 고정
+  num_beams: 1
+  enable_thinking: false # Qwen3 의 <think> 블록을 끈다 (답만 받기 위해)
+
+sets:
+  # ---- Set 1: In-distribution (새 메쉬, 학습과 같은 질문 family) -------------
+  set1:
+    enabled: true
+    split: test
+    variants: [0]        # 같은 질문의 말투 변형 3개 중 하나만 (중복 채점 방지)
+    # 소스를 나눠 받는 이유: 하나의 glob 에 max_records 를 걸면 파일 이름 순서대로 잘려
+    # nat_A1_* 만 뽑히고 A2/D1/C1/B2(PH)·B3 턴이 아예 안 들어온다. 그러면 Abstention·
+    # Direction·Monotonicity 가 n=0 이 된다. 소스별로 따로 상한을 준다.
+    #
+    # ⚠️ 소스를 나눠도 부족하다. turn_wise 인덱스가 파일 round-robin 이라 **앞에서 자르면
+    # 각 시나리오의 첫 turn_type 만** 나온다. 실측: PH max_records 100 → 전부 A2,
+    # D1/B2/C1/prescriptive 0개. 그래서 넉넉히 읽고(max_records) turn_type 별로 같은 수만큼
+    # 층화 추출한다(per_turn_type). 생성 비용은 per_turn_type × turn_type 수로 정해진다.
+    #   A1 3종 × 120 = 360 · PH 5종 × 120 = 600 · B3 1종 × 120 = 120  → 총 1,080 턴
+    # (PH max_records 3000 에서 B2 는 125개뿐이라 B2 가 실질 상한이다)
+    sources:
+      - {qa_glob: DATA/qa/en/nat_out/nat_A1_*.jsonl,
+         max_records: 1200, per_turn_type: 120}
+      - {qa_glob: DATA/qa/en/nat_out/nat_PH_*.jsonl,
+         max_records: 3000, per_turn_type: 120}
+      # B3(dose_response)는 레코드 하나가 mesh 6개를 참조한다. 기본 규칙(전부 같은 split)
+      # 으로는 test 에 6개가 다 들어갈 확률이 0.05^6 ≈ 0 이라 한 건도 안 잡힌다.
+      # 그래서 여기서만 primary(첫 mesh 기준)로 완화하고, 나머지 mesh 가 train 에 있을 수
+      # 있으므로 metrics.json 의 train_mesh_overlap 로 오염도를 함께 본다.
+      # → Monotonicity 는 "완전한 held-out"이 아니라는 점을 논문에 명시할 것.
+      - {qa_glob: DATA/qa/en/nat_out/nat_B3_*.jsonl,
+         max_records: 300, per_turn_type: 120, split_policy: primary}
+    metrics: [mask_f1, abstention_f1, direction_acc, monotonicity_acc]
+    # 지표별로 대상 turn_type 이 다르다 (readme §3 의 "해당 질문 타입이 정의된 세트에만")
+    abstain_turn_types: [D1]          # 역문제 — 기권이 정답
+    direction_turn_types: [B2]        # 반사실 — 방향
+    monotonicity_turn_types: [B3]     # 용량-반응 — 추세
+
+  # ---- Set 2: Synergy (새 질문 family B4/B5) --------------------------------
+  set2:
+    enabled: true
+    path: DATA/unseentest/gen_L2_synergy.jsonl
+    max_records: null
+    metrics: [sign_acc, mask_f1]
+
+  # ---- Set 3: Diagnostic (새 질문 형식) -------------------------------------
+  set3:
+    enabled: true
+    path: DATA/unseentest/gen_L3_diagnostic.jsonl
+    max_records: null
+    metrics: [correction_sign_f1, judge_payload]
+    judge:
+      model: gpt-4o        # 실행 시 정확한 버전 문자열을 metrics.json 에 기록할 것
+      temperature: 0.0
+      n_votes: 3
+    render:
+      enabled: true
+      max_items: 100       # 사람 검토용 PNG + index.html
+      human_subset: 50     # 사람 3명이 볼 부분집합 크기 (κ 계산용)

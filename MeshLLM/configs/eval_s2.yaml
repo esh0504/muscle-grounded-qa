@@ -1,0 +1,39 @@
+# Stage-2 평가 루트 (Hydra) — Set-1 probe (Metircs.md)
+#
+#   python eval.py +experiment=ours_en
+#   python eval.py +experiment=ours_en run.limit=20
+#   python eval.py +experiment=ours_en run.score_only=true
+#
+# 옛 3-세트 평가:
+#   python eval.py +experiment=ours_en evaluators=unseen
+#
+# Config만 넣으면 {output_dir}/checkpoint_best 로 추론하고
+# 결과는 {output_dir}/eval/pred/ 에 저장한다
+# (render · auto_metric_json · judge_metric_json).
+
+defaults:
+  - datasets: qa_dataset
+  - models: stage2_model
+  - evaluators: set1_probe
+  - override hydra/job_logging: disabled
+  - _self_
+
+seed: 42
+output_dir: outputs/stage2
+# null → Evaluator 가 {output_dir}/checkpoint_best 를 자동 선택
+checkpoint: null
+device: cuda
+
+run:
+  score_only: false
+  render_only: false
+  limit: null
+  mesh_control: real      # real | shuffle | rest | noise
+  require_weights: true   # best 가중치 없으면 중단
+
+hydra:
+  run:
+    dir: .
+  output_subdir: null
+  job:
+    chdir: false

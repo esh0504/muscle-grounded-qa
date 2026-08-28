@@ -1,0 +1,80 @@
+# 평가 설정 (한국어 모델) — configs/evaluators/unseen.yaml 의 ko 판.
+#
+#   python eval.py +experiment=ours_ko evaluators=unseen_ko
+#
+# 지표 정의·해석 기준선은 DATA/unseentest/readme.md 와 동일하다.
+#
+# ko 학습 설정(configs/experiment/ours_ko.yaml)을 그대로 가리킨다
+# (모델 구성 + output_dir 을 거기서 가져온다).
+# ⚠️ 학습은 best 를 <output_dir>/checkpoint_best/ 에 쓴다. null 로 두면 output_dir 를 보는데
+#    거기엔 가중치가 없을 수 있고, eval.py 는 경고만 하고 **미학습 모델로 평가한다**.
+#    항상 명시하거나 `checkpoint=... run.require_weights=true` 로 실행할 것.
+
+name: unseen        # find_evaluator_def 가 import 할 **모듈** 이름 (evaluators/unseen.py).
+                       # 설정 파일 이름(unseen_ko)과 달라도 된다 — 그룹 선택은
+                       # `evaluators=unseen_ko` 로 하고, 여기 name 은 모듈을 가리킨다.
+class_name: EvaluatorUnseen
+
+# 평가 출력 루트. null → <실험 output_dir>/eval (옛 eval.py 의 --output 에 해당).
+output_dir: null
+
+lang: ko
+batch_size: 4
+
+generation:
+  max_new_tokens: 320
+  do_sample: false
+  num_beams: 1
+  enable_thinking: false
+
+sets:
+  # ---- Set 1: In-distribution — ko QA 의 test split -------------------------
+  set1:
+    enabled: true
+    split: test
+    variants: [0]
+    sources:
+      # ⚠️ turn_wise 인덱스가 파일 round-robin 이라 앞에서 자르면 각 시나리오의 첫 turn_type
+      # 만 나온다(실측: PH max_records 100 → 전부 A2). 넉넉히 읽고 turn_type 별 층화 추출.
+      - {qa_glob: DATA/qa/ko/nat_out/nat_A1_*.jsonl,
+         max_records: 1200, per_turn_type: 120}
+      - {qa_glob: DATA/qa/ko/nat_out/nat_PH_*.jsonl,
+         max_records: 3000, per_turn_type: 120}
+      # B3 는 레코드당 mesh 6개라 'all' 규칙으로는 test 표본이 0이 된다 (readme §0).
+      # primary 로 완화하고 metrics.json 의 train_mesh_overlap 으로 오염도를 확인할 것.
+      - {qa_glob: DATA/qa/ko/nat_out/nat_B3_*.jsonl,
+         max_records: 300, per_turn_type: 120, split_policy: primary}
+    metrics: [mask_f1, abstention_f1, direction_acc, monotonicity_acc]
+    abstain_turn_types: [D1]
+    direction_turn_types: [B2]
+    monotonicity_turn_types: [B3]
+
+  # ---- Set 2 / Set 3 -------------------------------------------------------
+  # ⚠️ 일반화 테스트셋(gen_L2_synergy / gen_L3_diagnostic)은 **영어로만 존재한다**
+  #    (두 파일 모두 lang="en"). 따라서 ko 모델에 이걸 돌리면 like-for-like 비교가 아니라
+  #    **교차언어 전이(영어 질문 → ko 로 학습된 LoRA)** 를 재는 것이다.
+  #    - 채점기는 영·한 표현을 모두 파싱하므로 실행 자체는 문제없다
+  #      (sign_acc: 초가법/길항…, correction_sign: 수축/이완… 패턴 포함).
+  #    - 표에 EN 행과 나란히 싣지 말고 "cross-lingual" 로 따로 표기할 것.
+  #    - 제대로 비교하려면 build_gen_testset 을 ko 로 한 번 더 돌려 ko 판을 만들어야 한다.
+  set2:
+    enabled: true
+    path: DATA/unseentest/gen_L2_synergy.jsonl
+    max_records: null
+    metrics: [sign_acc, mask_f1]
+    note: cross-lingual (영어 테스트셋)
+
+  set3:
+    enabled: true
+    path: DATA/unseentest/gen_L3_diagnostic.jsonl
+    max_records: null
+    metrics: [correction_sign_f1, judge_payload]
+    note: cross-lingual (영어 테스트셋)
+    judge:
+      model: gpt-4o
+      temperature: 0.0
+      n_votes: 3
+    render:
+      enabled: true
+      max_items: 100
+      human_subset: 50

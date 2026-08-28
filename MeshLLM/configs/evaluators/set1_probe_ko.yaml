@@ -1,0 +1,37 @@
+# Set-1 probe (한국어)
+#
+#   python tools/build_set1_probe.py --lang ko --out DATA/unseentest/set1_probe_ko.jsonl
+#   python eval.py +experiment=ours_ko evaluators=set1_probe_ko
+
+name: set1_probe
+class_name: EvaluatorSet1Probe
+
+output_dir: null
+lang: ko
+batch_size: 4
+probe_path: DATA/unseentest/set1_probe_ko.jsonl
+delta_shuf: true
+
+# Value acc threshold — 설명은 set1_probe.yaml 참고
+value:
+  source: gold            # probe gold.tol 우선 (이전 지표)
+  tol_mm: 2.0
+  tol_norm: 0.1
+  default_tol: 2.0
+  per_quantity:
+    cd_min: 0.03
+value_tol: 2.0            # legacy alias
+
+reference_answers_path: null
+front_png_root: DATA/mesh_png/front
+
+generation:
+  max_new_tokens: 128
+  do_sample: false
+  num_beams: 1
+  enable_thinking: false
+
+render:
+  enabled: true
+  max_items: 0
+  front_png_root: DATA/mesh_png/front

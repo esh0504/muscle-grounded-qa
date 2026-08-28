@@ -1,0 +1,8 @@
+# build context = pipeline root (see docker-compose.yml)
+outputs/
+data/
+**/__pycache__/
+*.pyc
+.env
+settings/.env
+.git/

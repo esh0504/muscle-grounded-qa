@@ -1,0 +1,17 @@
+# DEV override — bind-mount the repo over the baked /workspace so code edits
+# apply instantly, no rebuild:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d workspace
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml run --rm train ours_en
+services:
+  workspace:
+    volumes: &devvol
+      - .:/workspace
+      - ${DATA_DIR:-./DATA}:/workspace/DATA
+      - ${OUTPUT_DIR:-./outputs}:/workspace/outputs
+      - ${CACHE_DIR:-./.cache}:/workspace/.cache
+  train:
+    volumes: *devvol
+  train_s1:
+    volumes: *devvol
+  eval:
+    volumes: *devvol

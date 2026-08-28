@@ -1,0 +1,5 @@
+# Stage-2 언어모델 손실 — fact span 가중 causal LM CE.
+# 가중치(λ)·span 선택은 datasets/qa_dataset.py 가 배치에 실어 보내는 loss_weight 로 들어온다.
+name: lm_loss
+class_name: WeightedLmLoss
+ignore_index: -100

@@ -1,0 +1,64 @@
+# @package _global_
+# Stage-2 한국어 학습 — base 인코더(Stage-1 [16,16]/latent 32) 동결 + Qwen3-8B LoRA
+#
+#   CUDA_VISIBLE_DEVICES=1 python train_s2.py +experiment=ours_ko
+#
+# EN 베이스라인(configs/experiment/ours_en.yaml)과 **모델·손실·규모를 동일**하게 두고
+# 언어만 바꿨다. 표에서 EN≈KO 언어 이식성을 비교하려면 이 조건이 유지돼야 한다.
+# 명령줄 인자를 주면 여기 값보다 우선한다.
+#
+
+name: ours_ko
+phase: 3
+priority: P0
+output_dir: outputs/stage2/ours_ko
+
+datasets:
+  lang: ko
+  qa_glob: DATA/qa/ko/nat_out/nat_*.jsonl
+  split: train
+  variants: [0]          # 말투 변형 3개 중 하나만 — 같은 질문의 중복 학습을 줄인다
+  # 파일마다 같은 몫을 가져오므로 shape_desc ~50% / physics_chain ~50% /
+  # dose_response ~0.7% 로 섞인다. 앞에서부터 자르면 nat_A1_* 만 뽑힌다.
+  # 사용 가능한 ko train 레코드는 266,924개(variants=[0], split 필터 후).
+  max_records: 240000
+  # 마스킹은 qa_dataset.yaml 기본값(full): span r=0.5, τ=0.6, 컨텍스트 p=0.3
+  # ko 는 mask_spans 가 "이설근 후부(genioglossus posterior)" 처럼 한국어명+라틴어를
+  # 통째로 잡으므로 EN 보다 muscle span 이 길다 — λ 는 τ 로 자동 역산돼 그대로 맞춰진다.
+
+models:
+  # Stage-1 에서 학습한 인코더 체크포인트.
+  # 이 둘이 없으면 모델이 mesh 를 전혀 쓰지 않는다
+  feature_stats: auto
+  bridge: mlp
+  encoder_init: pretrained
+  stage1_ckpt: outputs/stage1/checkpoint_best.pt
+  model_cfg: configs/models/stage1_model.yaml
+
+trainers:
+  # 에폭을 늘리기보다 **본 적 없는 레코드를 늘리는 쪽**이 낫다. QA 가 템플릿 기반이라
+  # 같은 데이터를 여러 번 돌면 문형을 외워버린다(fact 가중까지 걸려 있어 더 그렇다).
+  # 같은 시간 예산이면 240k×2 가 45k×10 보다 고유 샘플을 5배 넘게 본다.
+  # turn_wise 샘플링에서는 샘플 하나가 "턴 하나"다.
+  # 코사인 스케줄이 완주해야 마지막 체크포인트가 제대로 annealing 된 상태가 되므로,
+  # 시간 예산에 맞춰 epoch 수를 정한다 (중간에 끊으면 lr 이 스케줄 중간값에서 멈춘다).
+  epochs: 10
+  batch_size: 2            # batch 4 는 속도 이득 없음, 8 은 OOM (손실의 float32 캐스팅)
+  grad_accum: 8            # 유효 배치 16 (단일 GPU 기준). DDP 2장이면 trainers.grad_accum=4 로 준다
+  lr: 2.0e-4
+  log_every: 100
+
+  # validation — 1000 optimizer step 마다 (총 13회). 시간 예산을 감안해 작게 잡았다.
+  # 손실은 teacher-forced, Mask/Abstention F1 은 greedy 생성으로 잰다.
+  val:
+    every: 2500            # 10 epoch = 149,490 step → 60회
+    max_records: 256
+    gen_records: 64        # turn_type 층화라 D1 도 들어간다 (기권 측정 복구)
+    max_new_tokens: 192
+  # epoch 당 1개꼴. 43시간짜리 run 의 리스크를 없애고 training-length 곡선을 공짜로 얻는다.
+  save_every: 15000
+
+  wandb:
+    enabled: true
+    name: s2_ours_ko
+    tags: stage2,ko,ours

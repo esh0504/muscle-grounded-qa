@@ -1,0 +1,15 @@
+name: mesh_dataset
+class_name: MeshDataset
+root_dir: DATA/mesh
+split: train
+
+# train.txt / val.txt / test.txt 위치
+# (생성: python datasets/split_trainvaltest.py --data DATA/mesh --out DATA/mesh)
+split_dir: DATA/mesh
+
+# VALID 시뮬레이션만 사용 (FAILED_NUMERICAL 39건, MARGINAL 3건 제외)
+valid_only: true
+
+# "verts" = topology.obj rest 대비 표면 변위 (370, 3)
+# inputs = deformed - topology_rest
+geometry: verts

@@ -1,0 +1,21 @@
+# local configuration
+.env
+*/.env
+
+# data & outputs (volumes)
+pipeline/data/
+pipeline/outputs/
+MeshLLM/DATA
+MeshLLM/DATA/
+MeshLLM/outputs/
+MeshLLM/checkpoints/
+MeshLLM/.cache/
+
+# python
+**/__pycache__/
+*.pyc
+*.egg-info/
+
+# misc
+.DS_Store
+Thumbs.db

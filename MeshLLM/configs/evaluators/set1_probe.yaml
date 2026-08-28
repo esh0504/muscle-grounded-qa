@@ -1,0 +1,49 @@
+# Set-1 probe 평가 (SET1_PROBE_SPEC.md / SET1_METRICS_DETAIL.md)
+#
+#   python eval.py +experiment=ours_en
+#   python eval.py +experiment=ours_en run.limit=20
+#   python eval.py +experiment=ours_en run.score_only=true
+#
+# checkpoint 를 생략하면 {output_dir}/checkpoint_best 를 자동 사용한다.
+# 산출물: <output_dir>/eval/pred/
+#   render/{testdata_index}.png
+#   auto_metric_json/{muscle,value,direction,abstention}_set.json
+#   judge_metric_json/gpt/{imgs_preds,mesh_preds,reference_answer}.json
+#   judge_metric_json/human/{testdata_index}.png
+
+name: set1_probe
+class_name: EvaluatorSet1Probe
+
+output_dir: null          # null → <실험 output_dir>/eval
+lang: en
+batch_size: 4
+probe_path: DATA/unseentest/set1_probe.jsonl
+delta_shuf: true          # Muscle F1 drop under shuffled mesh (preds_muscle_shuf)
+
+# Value acc threshold: |pred − gold| ≤ tol
+#   source: config → 아래 tol_* 를 사용 (yaml 수정이 점수에 반영됨)
+#           gold   → probe item gold.tol 우선 (build 시 구운 값; tol_mm/tol_norm 무시)
+#   hydra 예:  evaluators.value.tol_mm=1.0
+value:
+  source: gold            # probe gold.tol 우선 (이전 지표)
+  tol_mm: 2.0             # region_disp mm fallback
+  tol_norm: 0.1           # A1 features fallback
+  default_tol: 2.0
+  per_quantity:
+    cd_min: 0.03
+value_tol: 2.0            # legacy alias
+
+# null → DATA/unseentest/utility_judge_en/reference_answers_{lang}.jsonl
+reference_answers_path: null
+front_png_root: DATA/mesh_png/front
+
+generation:
+  max_new_tokens: 128     # cloze continuation
+  do_sample: false        # greedy
+  num_beams: 1
+  enable_thinking: false
+
+render:
+  enabled: true
+  max_items: 0            # 0 = 전체
+  front_png_root: DATA/mesh_png/front

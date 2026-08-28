@@ -1,0 +1,18 @@
+# DEV override — bind-mount the repo over the baked /workspace so code and
+# settings edits apply instantly, no rebuild:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d workspace
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml run --rm mesh
+# Drop the second -f to go back to the baked release image (rebuild to refresh).
+services:
+  workspace:
+    volumes:
+      - .:/workspace
+      - ${DATA_DIR:-./data}:/data
+  mesh:
+    volumes:
+      - .:/workspace
+      - ${DATA_DIR:-./data}:/data
+  qa:
+    volumes:
+      - .:/workspace
+      - ${DATA_DIR:-./data}:/data

@@ -1,0 +1,44 @@
+# ============================================================================
+# USER SETTING — Step 2 sampling: pool size, seed, section mix (one file)
+#
+# The pool is a mixture of purpose-built sections, shuffled so any index range
+# is a balanced subsample:
+#   enumerated : rest(1) · single(11 x levels) · pair(C(11,2) x 3x3) · triple(triple_n)
+#   filled     : anchor / neighbor / effort / spacefill at `ratios` of the rest
+# Changing anything here produces a DIFFERENT pool than the released dataset
+# (released pool: total=300000, seed=0 -> 295,157 rows after dedup).
+# ============================================================================
+
+total: 300000        # pool size before 4-decimal dedup
+seed: 0
+
+# Keep the all-zero REST sample at pool index 0 (pilot runs then always contain
+# the displacement reference). The RELEASED pool was built with rest_first: false
+# (rest landed at index 290609 after the shuffle) — set false to reproduce it
+# byte-for-byte; everything else is unaffected.
+rest_first: true
+
+ratios:              # filled-section shares (must sum to 1)
+  anchor: 0.35       #   phoneme-balanced anchors + center-to-center interpolation
+  neighbor: 0.20     #   one-muscle ±step perturbation of a random anchor (B2 pairs)
+  effort: 0.15       #   fixed direction, amplitude swept (dose-response)
+  spacefill: 0.30    #   sparse random coverage
+
+triple_n: 3000                                   # enumerated 3-muscle combos
+levels: [0.15, 0.30, 0.45, 0.60, 0.75, 0.90]     # single-muscle dose levels
+pair_amp: [0.3, 0.6, 0.9]                        # pairwise amplitude grid
+neighbor_step: 0.15                              # one-muscle perturbation size
+anchor_self_frac: 0.7                            # anchor: own-center share (rest: interpolation)
+
+nact_w:              # spacefill: P(n_active = k)
+  1: 0.10
+  2: 0.20
+  3: 0.22
+  4: 0.18
+  5: 0.12
+  6: 0.08
+  7: 0.05
+  8: 0.03
+  9: 0.012
+  10: 0.005
+  11: 0.003

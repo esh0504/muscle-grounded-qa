@@ -1,0 +1,54 @@
+# Stage-2 모델 그룹 — find_model_def(cfg.models.name, cfg.models.class_name) 규약.
+name: stage2.model_s2       # models.stage2.model_s2 모듈
+class_name: Stage2Model
+
+# 인코더 (Stage-1 동결)
+encoder_init: pretrained    # pretrained | random | none
+                            # pretrained=Stage-1 동결 | random=무작위 동결(ablation) | none=text-only
+encoder_kind: mesh
+                            # mesh   = 3D SpiralNet++ 인코더 (mesh 변위 입력)
+stage1_ckpt: outputs/stage1/checkpoint_best.pt
+model_cfg: configs/models/stage1_model.yaml
+
+
+# --- mesh→LLM 다리 ------------------------------------------------------
+# 이 두 값을 되돌리면 모델이 mesh 를 전혀 쓰지 않는다 (연구 repo 진단 결과).
+#
+#   feature_stats: 동결 인코더 출력의 (정점,채널)별 z-score. 항목 독립 DC 성분을 없앤다.
+#     없으면 서로 다른 mesh 의 prefix 코사인 유사도가 0.99~1.00 으로 붕괴한다.
+#     "auto" = 학습 split 표본에서 즉석 계산.
+#   bridge: mlp = 토큰별 선형 사영(LLaVA-1.5 방식). qformer 는 stream 이 항목 공통
+#     상수(query_tokens)로 시작해 mesh 가 residual 로만 얹혀 상수가 방향을 지배한다.
+#
+# Gate 4(짧고 100% mesh 결정 타깃) 실측: qformer+표준화X 0.0847 vs 무mesh 0.0846 (FAIL),
+# mlp+표준화X 0.0844 vs 0.0841 (FAIL), qformer+표준화O 0.1524 vs 0.1032 (FAIL),
+# **mlp+표준화O 0.0234 vs 0.1041 (PASS)** — 둘 다 있어야 한다.
+feature_stats: auto         # null | auto | <path.pt>
+                            # 인코더 특징 z-score 통계 (.pt). dummy/scripts/encoder_feature_stats.py 산출물.
+                            # 동결 인코더 출력의 항목 독립 DC 성분을 제거한다
+
+# LLM
+llm: Qwen/Qwen3-8B
+attn_impl: eager            # eager | sdpa | flash_attention_2
+bf16: true
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  targets: q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj
+
+# mesh→LLM 다리
+bridge: mlp                 # mlp | qformer
+                            # qformer=CrossAttentionFusion(32 query),
+                            # mlp=토큰별 사영(LLaVA-1.5 방식, prefix 토큰 = mesh 당 25개)
+fusion_dim: 512
+n_query: 32
+fusion_layers: 4
+fusion_heads: 8
+prefix_norm: true           # projector 뒤에 LayerNorm + 학습 가능 scale (LLM 임베딩과 크기 정렬)
+prefix_scale_init: 0.022    # Qwen3-8B token embedding RMS 실측값
+
+aux:
+  muscle: false
+  weight: 0.5

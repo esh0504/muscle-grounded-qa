@@ -1,0 +1,83 @@
+# 3DTongueQA pipeline — release compose (run from the pipeline root)
+#
+#   copy settings\docker.env.example .env      (edit DATA_DIR etc.; auto-read)
+#   docker compose build
+#   docker compose run --rm mesh              # steps 1-3 (or: run --rm mesh 0 1000 1)
+#   docker compose run --rm qa                # steps 4-5
+#   docker compose up -d workspace
+#   docker compose exec workspace bash
+#
+# DEV mode (repo bind-mounted over /workspace; edits apply without rebuild):
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d workspace
+#
+# All mutable state lives in ${DATA_DIR} (default ./data):
+#   /data/mesh (pool + FEM meshes)  /data/index  /data/qa
+#
+# To pin ArtiSynth for a release:
+#   docker compose build --build-arg ARTISYNTH_REF=<commit> --build-arg MODELS_REF=<commit>
+
+# Project name (network/volume prefix, Docker Desktop group). Override in .env
+# with COMPOSE_PROJECT_NAME, or per-invocation with `docker compose -p <name>`.
+name: ${COMPOSE_PROJECT_NAME:-tongueqa}
+
+x-common: &common
+  image: ${IMAGE_NAME:-tongueqa/pipeline}:${IMAGE_TAG:-latest}
+  build:
+    context: .                  # pipeline root (code is baked into the image)
+    dockerfile: Dockerfile
+    args:
+      ARTISYNTH_REF: ${ARTISYNTH_REF:-master}
+      MODELS_REF: ${MODELS_REF:-master}
+  # Native ArtiSynth solver libs are x86_64; on Apple Silicon uncomment:
+  # platform: linux/amd64
+  # Run as the invoking host account so files in ${DATA_DIR} are owned by YOU,
+  # not root (shared servers). Put your ids in .env:
+  #   echo "DOCKER_UID=$(id -u)" >> .env && echo "DOCKER_GID=$(id -g)" >> .env
+  user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
+  volumes:
+    - ${DATA_DIR:-./data}:/data
+  environment:
+    HOME: /tmp
+    JVM_XMX: ${JVM_XMX:-6g}
+    NPROC: ${NPROC:-2}
+    FEAT_WORKERS: ${FEAT_WORKERS:-2}
+    LANGS: ${LANGS:-ko en}
+  working_dir: /workspace
+
+x-init-dep: &init-dep
+  depends_on:
+    init:
+      condition: service_completed_successfully
+
+services:
+  # One-shot permission fixer: runs as root before every service. Creates the
+  # /data layout and makes anything not yet world-writable 777/666, so a
+  # root-owned DATA_DIR (e.g. auto-created by the Docker daemon) never blocks
+  # the non-root pipeline user. After the first pass it finds nothing to fix.
+  init:
+    <<: *common
+    user: "0:0"
+    restart: "no"
+    entrypoint: ["bash", "-c",
+      "mkdir -p /data/mesh /data/index /data/qa && find /data \\! -perm -o=w -exec chmod a+rwX {} + 2>/dev/null; true"]
+    command: []
+
+  # interactive shell (inspection, partial reruns, check_design.py, ...)
+  workspace:
+    <<: [*common, *init-dep]
+    container_name: ${CONTAINER_NAME:-tongueqa_pipeline}
+    command: ["sleep", "infinity"]
+    restart: unless-stopped
+
+  # Steps 1-3: spec check + pool + FEM meshes -> /data/mesh
+  mesh:
+    <<: [*common, *init-dep]
+    profiles: ["run"]
+    entrypoint: ["/workspace/docker-entrypoint.sh", "/workspace/scripts/make_mesh.sh"]
+    command: []
+
+  # Steps 4-5: indexes + physics/feature QA (KO+EN) -> /data/index, /data/qa
+  qa:
+    <<: [*common, *init-dep]
+    profiles: ["run"]
+    command: ["/workspace/scripts/make_qa.sh"]

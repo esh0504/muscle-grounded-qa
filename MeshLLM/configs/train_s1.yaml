@@ -1,0 +1,20 @@
+defaults:
+  - datasets: mesh_dataset
+  - models: stage1_model
+  - losses: loss_s1
+  - trainers: trainer_s1
+  - _self_
+
+seed: 42
+
+# Stage-1 trainer overrides
+trainers:
+  output_dir: outputs/stage1
+  wandb:
+    enabled: true
+    project: tongue-muscle
+    tags: [stage1, spiralnet, muscle]
+
+run:
+  do_train: true
+  do_eval: true

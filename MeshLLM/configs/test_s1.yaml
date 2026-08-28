@@ -1,0 +1,22 @@
+defaults:
+  - datasets: mesh_dataset
+  - models: stage1_model
+  - losses: loss_s1
+  - trainers: trainer_s1
+  - _self_
+
+seed: 42
+
+# Checkpoint produced by Stage-1 training
+checkpoint: outputs/stage1/checkpoint_best.pt
+
+# Stage-1 trainer overrides (eval)
+trainers:
+  output_dir: outputs/stage1
+  wandb:
+    enabled: false
+
+run:
+  split: test          # test | val | train
+  save_predictions: true
+  pred_path: outputs/stage1/test_predictions.pt

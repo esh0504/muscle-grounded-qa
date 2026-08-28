@@ -1,0 +1,17 @@
+{
+  "comment": "Container config (PIPELINE_CONFIG points here). Everything mutable lives under the /data volume; the code is baked at /workspace. Sampling size/seed live in settings/sampling.yaml; anchors in settings/anchors.yaml.",
+
+  "artisynth_home": "/opt/artisynth/artisynth_core",
+  "model": "artisynth.models.tongue3d.StableFemMuscleTongueDemo",
+
+  "pool_txt": "/data/mesh/pool.txt",
+  "pool_meta": "/data/mesh/pool_meta.csv",
+  "sim_out": "/data/mesh",
+
+  "index_dir": "/data/index",
+  "qa_out": "/data/qa",
+
+  "rest_index": "auto",
+  "n_surf_verts": 370,
+  "shard_size": 1000
+}

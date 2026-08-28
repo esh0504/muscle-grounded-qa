@@ -1,0 +1,108 @@
+# ============================================================================
+# USER SETTING — English QA templates (Step 4). Same structure as
+# templates_ko.yaml; only the surface language differs — the rendered numbers,
+# muscle identities and directions are identical facts (language portability).
+# ============================================================================
+
+lang: en
+files:
+  physics_prefix: qa_en         # -> qa_en_{shard:05d}.jsonl
+  feature_a1_prefix: qa_A1en    # -> qa_A1en_{shard:05d}.jsonl
+  b3_filename: qa_B3en.jsonl
+
+muscle_names:
+  GGP: "genioglossus posterior (GGP)"
+  GGM: "genioglossus medius (GGM)"
+  GGA: "genioglossus anterior (GGA)"
+  STY: "styloglossus (STY)"
+  GH: "geniohyoid (GH)"
+  MH: "mylohyoid (MH)"
+  HG: "hyoglossus (HG)"
+  VERT: "verticalis (VERT)"
+  TRANS: "transversus (TRANS)"
+  IL: "inferior longitudinal (IL)"
+  SL: "superior longitudinal (SL)"
+
+muscle_actions:
+  GGP: "elevates & advances the tongue dorsum/body"
+  GGM: "elevates the tongue body"
+  GGA: "lowers the anterior tongue and grooves/advances the tip"
+  STY: "retracts and elevates the back of the tongue"
+  GH: "draws the hyoid up and forward"
+  MH: "elevates the floor of the mouth / tongue body"
+  HG: "depresses and retracts the tongue body"
+  VERT: "flattens/thins the tongue vertically"
+  TRANS: "narrows the tongue side-to-side, elongating it up/forward"
+  IL: "lowers the tongue tip and shortens/retracts"
+  SL: "raises the tongue tip and shortens"
+
+direction_words: {advance: "advance", retract: "retract", raise: "raise", lower: "lower"}
+
+# ---------------------------------------------------------------- physics chain
+physics:
+  attribution:
+    q: "Which muscles produced this tongue shape, and what does each do?"
+    a: "This shape was driven by {muscles}. Each action — {actions}."
+    action_item: "{muscle}: {action}"
+    list_sep: ", "
+    action_sep: "; "
+  identifiability:
+    q: "From this shape alone, can the muscle activation be uniquely determined?"
+    a: "No. Different muscle combinations can produce similar shapes (motor equivalence), so it cannot be uniquely determined. The above is one canonical pattern that produced this shape."
+  volume:
+    q: "When the tongue deforms, what happens to its volume, and how does that constrain the shape?"
+    a: "Tongue tissue is nearly incompressible, so volume is preserved during deformation (vol_ratio={vol_ratio}, about 1.0). Thus when one region is pushed, another must compensate — here the {region} region moved the most ({h}, {v}), and volume preservation offsets it with opposite motion in adjacent regions."
+  single:
+    q: "If only {muscle} contracts, how does the tongue move?"
+    a: "When {muscle} contracts ({action}), relative to rest the {region} region moves the most ({h}, {v}). Regional displacement (dx/dz mm): front {front_dx}/{front_dz}, mid {mid_dx}/{mid_dz}, back {back_dx}/{back_dz}. This is a single-muscle controlled intervention."
+  counterfactual:
+    q: "From this state, if the muscle activation is changed by {delta}, how will the tongue shape change?"
+    a_effect: "The {region} region mainly {h}, {v} (change dx {dx}mm, dz {dz}mm). This is the pure effect of that muscle change alone (others fixed, vs base mesh #{base})."
+    a_negligible: "The net effect of this muscle change ({delta}) is negligible — the mean regional displacement change is under 0.1mm (dx {dx}mm, dz {dz}mm), so the shape stays essentially the same (vs base mesh #{base}, other muscles fixed). It means this muscle is not dominant in this posture."
+  prescriptive:
+    q: "From this tongue state, how should articulation be adjusted to produce /{target}/?"
+    a: "Comparing the target muscle pattern for /{target}/ with the current one — {body}. That moves the tongue toward the constriction/posture for /{target}/."
+    increase_prefix: "contract more: "
+    decrease_prefix: "relax: "
+    already_close: "the current muscle configuration is already close to the target."
+    list_sep: ", "
+    part_sep: "; "
+
+# ------------------------------------------------------------------ feature QA
+feature:
+  q1: "Describe this tongue-surface shape quantitatively — constriction location, minimum gap, peak, and doming?"
+  a1: "Normalizing this posture's tongue-dorsum contour by palate arc length: the maximum constriction is at the {place} position (normalized location cl_t={cl_t}, 0=front, 1=back), where the minimum gap to the palate is cd_min={cd_min}. The dorsal peak sits at anteroposterior position peak_xn={peak_xn}, height peak_z={peak_z}; doming is {doming} and the front-to-back tilt is tilt={tilt}. Regional heights are front {h_front}, mid {h_mid}, back {h_back}, so the {hi_reg} region is highest."
+  q2: "Roughly which place of articulation does this constriction correspond to?"
+  a2: "The constriction is formed in the {place} region (cl_t={cl_t}), so on shape alone it is consistent with {place}-place articulation ({place_example}). This is a geometry-based approximation only; the actual phoneme requires muscle activation and aerodynamics to confirm."
+  q3: "What are the overall curvature and length characteristics of the tongue surface?"
+  a3: "The normalized arc length is arc_len={arc_len} and the peak curvature is curv_peak={curv_peak}, so the contour bends {curv_word}. Together with the peak height peak_z={peak_z}, the dorsum is {doming_word}."
+  place_words: {front: "front", mid: "mid", back: "back"}
+  place_examples: {front: "alveolar (/s, t, d/)", mid: "palatal (/ɕ, j/)", back: "velar (/k, g/)"}
+  curv_words: {gentle: "gently", sharp: "sharply"}
+  doming_words: {flat: "flattened", domed: "domed"}
+
+b3:
+  q_single: "If only {muscle} is activated and its level is raised from {lv0} to {lv1}, how does the tongue deformation magnitude respond? (dose-response)"
+  q_effort: "If {muscles} are co-activated and the overall level is raised from {lv0} to {lv1}, how does the tongue deformation magnitude change? (dose-response)"
+  seq_item: "{lv}->{resp}mm"
+  seq_sep: ", "
+  a_strict: "As the activation (dose) of {lead} increases, the mean regional displacement from rest (response) monotonically increases: {seq}. This monotonic increase (Spearman rho={rho}) shows a consistent dose-response relation between muscle activation and deformation magnitude; the increments taper off in a saturating curve."
+  a_near: "As {lead} activation increases, the displacement increases almost monotonically: {seq}. The overall trend is a clear increase (Spearman rho={rho}) with only minor local fluctuation, so the dose-response relation holds."
+  a_partial: "As {lead} activation increases the displacement generally rises but is not strictly monotonic: {seq} (Spearman rho={rho}). Some ranges show saturation or reversal due to interaction with other muscles and geometric constraints."
+
+# ------------------------------------------------- mask_spans (span tagging)
+spans:
+  physics:
+    movement_words: ["advance", "retract", "raise", "lower", "preserve", "preserved", "compensate", "offsets", "negligible", "monotonically", "increase", "increases", "decreases"]
+    movement_mode: word
+    region_words: ["front", "mid", "back"]
+    region_mode: word
+    number_roles: [["cl_t", "cl_t"], ["cd_min", "cd_min"], ["vol_ratio", "vol_ratio"], ["dx", "dx_mm"], ["dz", "dz_mm"], ["mm", "disp_mm"]]
+    context_chars: 12
+  feature:
+    movement_words: ["monotonically increases", "monotonically", "increases", "increase", "decreases", "saturates", "saturation", "reversal", "advance", "retract", "raise", "lower", "rises", "flattened", "domed", "consistent"]
+    movement_mode: find
+    region_words: ["front", "mid", "back"]
+    region_mode: word
+    number_roles: [["cl_t", "cl_t"], ["cd_min", "cd_min"], ["peak_xn", "peak_xn"], ["peak_z", "peak_z"], ["doming", "doming"], ["tilt", "tilt"], ["arc_len", "arc_len"], ["curv_peak", "curv_peak"], ["vol_ratio", "vol_ratio"], ["rho", "rho"], ["ρ", "rho"], ["dx", "dx_mm"], ["dz", "dz_mm"], ["mm", "disp_mm"], ["->", "disp_mm"]]
+    context_chars: 14

@@ -1,0 +1,60 @@
+name: qa_dataset
+class_name: MeshQaDataset
+
+# ---------------------------------------------------------------------------
+# Stage-2 QA 데이터 (자연화 산출물) + mesh
+# ---------------------------------------------------------------------------
+qa_glob: DATA/qa/ko/nat_out/nat_*.jsonl
+lang: ko
+mesh_root: DATA/mesh
+
+# mesh split 을 그대로 재사용한다. Stage-1 과 같은 경계를 써야 Stage-2 val 에
+# Stage-1 이 학습한 mesh 가 섞이지 않는다.
+split_dir: DATA/mesh
+split: train
+
+# 필터
+# assistant 턴 하나 = 학습 샘플 하나.
+# false 면 대화 전체가 한 샘플이라 fusion 질문에 **미래 질문까지** 들어간다
+# (A1 을 예측할 때 Q2·Q3 를 봄 = future-question leakage). 평가는 현재 질문만 주므로
+# train–test mismatch 도 생긴다. 특별한 이유가 없으면 true 로 둘 것.
+turn_wise: true
+# 학습 렌더를 평가와 같게 고정. Qwen3 는 assistant 앞에 <think></think> 를 끼워 넣는데
+# 평가용 generation prompt 는 그 블록으로 끝나므로, 학습에서도 본문만 감독한다.
+enable_thinking: false
+
+exclude_scenarios: []      # 예: [dose_response] — mesh 6개짜리 레코드를 빼고 싶을 때
+variants: null             # null=전부(0,1,2). 규모를 줄이려면 [0]
+faithful_only: false       # true 면 nat_all_faithful=true 레코드만 (원문 폴백 제외)
+max_records: null          # null=전부. 스모크용으로 정수 지정
+index_cache: null          # 레코드 인덱스 캐시 경로 (null=캐시 안 씀)
+
+# ---------------------------------------------------------------------------
+# Fact 마스킹 / 손실 가중
+#
+# 세 가지가 서로 다른 일을 한다:
+#   1) span_select_ratio  — 매 스텝 span 중 몇 %를 손실 가중 대상으로 고를지 (정규화 효과)
+#   2) target_fact_share  — 그 가중이 전체 손실에서 차지할 목표 비중 (λ 를 여기서 역산)
+#   3) context_mask_prob  — 이전 턴 답변의 span 을 입력에서 가릴 확률 (복사 지름길 차단)
+#
+# 3)은 입력만 가리고 정답 label 은 원본을 유지한다. causal 이라 자기 자신의 예측에는
+# 영향이 없고, 뒤 턴이 앞 턴 숫자를 베끼는 경로만 끊긴다.
+# ---------------------------------------------------------------------------
+masking:
+  span_source: mask_spans        # mask_spans | none
+  mask_types: [number, muscle, region, movement]
+
+  span_select_ratio: 0.5         # r — 0.0 이면 가중 off, 1.0 이면 항상 전체 span
+  target_fact_share: 0.6         # τ — λ 역산 목표. null 이면 fact_weight 를 고정 사용
+  fact_weight: 3.0               # τ=null 일 때 쓰는 고정 λ
+  max_fact_weight: 20.0          # τ 역산 시 λ 상한 (span 이 희소한 답변에서 폭주 방지)
+  # r 과 max_fact_weight 는 상호작용한다. r=0.5, τ=0.6 이면 λ≈14~19 로 상한에 근접한다.
+  # r 을 더 낮추면(예: 0.25) 필요한 λ 가 상한을 넘어 클립되고 τ 에 도달하지 못한다.
+  # r 을 낮출 거면 max_fact_weight 도 같이 올려라.
+
+  context_mask_prob: 0.3         # p — 마지막 답변 턴을 제외한 이전 턴 span 을 가릴 확률
+  context_mask_token: "<|fim_pad|>"   # Qwen3 예약 토큰. QA 텍스트에 절대 안 나온다
+
+# 토크나이즈
+max_len: 2048        # 대화 전체 최대 토큰
+q_max_len: 256       # fusion 에 넣는 질문 텍스트 최대 토큰

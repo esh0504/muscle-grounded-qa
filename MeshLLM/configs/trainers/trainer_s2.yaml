@@ -1,0 +1,50 @@
+# Stage-2 trainer 그룹 — find_trainer_def(cfg.trainers.name, cfg.trainers.class_name) 규약.
+name: trainer_s2
+class_name: TrainerS2
+
+output_dir: ${output_dir}
+
+# ⚠️ 표의 모든 row 는 **같은 예산**이어야 나란히 실을 수 있다.
+# ko 기준 run 이 10 epoch 이므로 여기도 10 으로 맞춘다.
+# 1 epoch ≈ 4.1h (2×H200 DDP, **실측 4.08 it/s/rank** — ours_ko 20.3h 구간, 검증·저장 포함)
+  # → row 당 ≈ 41h. (학습 전 추정치는 4.6 이었다)
+epochs: 10
+batch_size: 2
+grad_accum: 8          # 유효 배치 16
+lr: 2.0e-4             # LoRA
+lr_bridge: 5.0e-4      # fusion/projector/query_tokens (무작위 초기화라 더 크게)
+weight_decay: 0.0
+bridge_weight_decay: 1.0e-2
+warmup_ratio: 0.05     # 정렬 안 된 prefix 로 초반에 LLM 을 흔들지 않게
+max_grad_norm: 1.0
+num_workers: 2
+log_every: 50
+# N step 마다 checkpoint_stepXXXXXX/ 에 저장 (별도 디렉토리라 덮어쓰지 않는다).
+# 43h 짜리 run 을 거는 리스크를 없애는 장치다 — 시간이 부족하면 모든 row 를 공통의
+# 더 이른 step 에서 평가하면 되고, training-length 곡선도 공짜로 얻는다.
+# 326MB/ckpt × 10 = 3.3GB/run — output_dir 디스크 여유를 확인할 것.
+save_every: 15000
+seed: ${seed}
+
+# validation — best checkpoint 선택과 과적합 시점 확인용.
+# rank 0 이 teacher-forced 손실 + 생성 기반 Mask/Abstention F1 을 재고,
+# 다른 랭크는 barrier 로 기다린다.
+# best 기준은 **val/mask_f1_number_informative** (mesh 를 봐야만 맞는 카테고리).
+# micro Mask F1 은 movement/region 이 turn_type 당 gold-set 하나라 상수 문자열로도
+# 1.0 이 나오고 no-mesh floor 가 0.479 다 — 그 기준으로 고르면 template 모방을 고른다.
+val:
+  every: 2500          # optimizer step 기준. 0 이면 끔.
+                       # 10 epoch = 149,490 step → 60회. (1000 이면 149회 × 160s = 6.6h 낭비)
+  split: val
+  max_records: 512     # 손실용
+  gen_records: 64      # 생성용 (느리므로 작게). turn_type 층화라 D1 도 포함된다
+  max_new_tokens: 256
+  abstain_turn_types: D1   # 기권이 정답인 turn_type (쉼표 구분)
+
+# wandb — rank 0 만 기록한다. 실패해도 학습은 계속된다.
+wandb:
+  enabled: true
+  project: tongue-muscle
+  name: null           # 생략(null) 시 output_dir 의 마지막 폴더 이름을 쓴다
+  mode: offline        # offline(기본, 로그인 불필요) | online(wandb 계정) | disabled
+  tags: stage2         # 쉼표 구분

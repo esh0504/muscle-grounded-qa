@@ -1,0 +1,23 @@
+# Stage-1 평가 루트 (Hydra) — 회귀 헤드로 Muscle-EM · Activation MAE
+#
+#   python eval_s1.py
+#   python eval_s1.py evaluators.rows='[mesh3d]'
+#   python eval_s1.py evaluators.output_dir=outputs/stage1_muscle_fixed \
+#     evaluators.threshold.mode=fixed evaluators.threshold.value=0.05
+#
+# Stage-2 평가(eval.py / eval_s2.yaml)와 같은 mesh 를 쓰지만 LLM 은 끼지 않는다.
+
+defaults:
+  - evaluators: stage1_muscle
+  - override hydra/job_logging: disabled
+  - _self_
+
+seed: 42
+device: cuda
+
+hydra:
+  run:
+    dir: .
+  output_subdir: null
+  job:
+    chdir: false

@@ -1,0 +1,45 @@
+# ============================================================================
+# USER SETTING — Step 1 anchor specification (vowels + consonants, one file)
+#
+# vec / band values are 11-D muscle activations in the FIXED order:
+#   [GGP, GGM, GGA, STY, GH, MH, HG, VERT, TRANS, IL, SL]
+# Changing anything here produces a DIFFERENT pool than the released dataset.
+#
+# refs tags (full citations: step1_sampling_design/README.md):
+#   B09 Buchaillard2009 · H17 Harandi2017 · TH07 Takano&Honda2007 · H96 Honda1996
+#   S12r Stavness2012 /r/ · X22 fiber-strain MRI · ST25 Strycharczuk2025
+#   C24 Compartmental Tongue 2024 · F06 Flemming schwa
+# ============================================================================
+
+limits:
+  amax: 0.9        # per-muscle activation cap
+  budget: 2.0      # total-activation budget, vowels
+  cbudget: 2.3     # total-activation budget, consonants
+
+# --- 12 vowel centers: Gaussian(vec, sigma) in activation space ---------------
+vowels:
+  i_front:  {ipa: i, sigma: 0.08, refs: "B09;H96",  vec: [0.5, 0, 0.5, 0, 0.4, 0, 0, 0, 0, 0, 0]}
+  ih_lax:   {ipa: ɪ, sigma: 0.12, refs: "ST25",     vec: [0.4, 0, 0.38, 0, 0.3, 0, 0, 0, 0, 0, 0]}
+  e_mid:    {ipa: e, sigma: 0.12, refs: "H96",      vec: [0.42, 0, 0.32, 0, 0.32, 0, 0, 0, 0, 0, 0]}
+  eps_open: {ipa: ɛ, sigma: 0.12, refs: "ST25",     vec: [0.28, 0, 0.42, 0, 0, 0, 0.18, 0, 0, 0, 0]}
+  a_low:    {ipa: a, sigma: 0.08, refs: "B09;TH07", vec: [0, 0, 0.45, 0, 0, 0, 0.55, 0, 0, 0, 0]}
+  alpha_bk: {ipa: ɑ, sigma: 0.10, refs: "H96;TH07", vec: [0, 0, 0, 0.28, 0, 0, 0.55, 0, 0, 0, 0]}
+  open_o:   {ipa: ɔ, sigma: 0.12, refs: "TH07",     vec: [0, 0, 0, 0.38, 0.2, 0, 0.42, 0, 0, 0, 0]}
+  o_mid:    {ipa: o, sigma: 0.12, refs: "TH07",     vec: [0.38, 0, 0, 0.42, 0.38, 0, 0, 0, 0, 0, 0]}
+  u_back:   {ipa: u, sigma: 0.08, refs: "B09;X22",  vec: [0.42, 0, 0, 0.5, 0.4, 0, 0, 0, 0, 0, 0.3]}
+  uh_lax:   {ipa: ʊ, sigma: 0.12, refs: "ST25",     vec: [0.35, 0, 0, 0.4, 0.32, 0, 0, 0, 0, 0, 0]}
+  barred_i: {ipa: ɨ, sigma: 0.12, refs: "H96",      vec: [0.4, 0, 0.25, 0.2, 0, 0, 0, 0, 0, 0, 0]}
+  schwa:    {ipa: ə, sigma: 0.14, refs: "F06",      vec: [0.2, 0, 0.18, 0, 0, 0, 0, 0, 0, 0, 0]}
+
+# --- 8 consonant-class rules: defining-muscle activation bands [lo, hi] -------
+# Consonants are defined by contact/constriction PLACE; defining muscles are
+# sampled uniformly within their band, background muscles sparsely.
+consonants:
+  velar_kg:    {ipa: "k g", refs: "H17;X22",   bands: {STY: [0.70, 0.90], GGP: [0.50, 0.90], TRANS: [0.0, 0.25]}}
+  velar_ng:    {ipa: ŋ,     refs: "interp(k)", bands: {STY: [0.60, 0.88], GGP: [0.45, 0.85]}}
+  alveolar_td: {ipa: "t d", refs: "H17",       bands: {SL: [0.50, 0.90], GGA: [0.30, 0.70], VERT: [0.20, 0.60], TRANS: [0.0, 0.18]}}
+  sibilant_s:  {ipa: s,     refs: "X22",       bands: {TRANS: [0.45, 0.90], SL: [0.30, 0.70], GGA: [0.30, 0.70], VERT: [0.20, 0.55]}}
+  lateral_l:   {ipa: l,     refs: "C24",       bands: {SL: [0.45, 0.90], GGA: [0.25, 0.60], IL: [0.0, 0.30], STY: [0.0, 0.22]}}
+  rhotic_r:    {ipa: r,     refs: "S12r",      bands: {GGP: [0.40, 0.80], GGA: [0.25, 0.60], STY: [0.20, 0.50]}}
+  postalv_sh:  {ipa: "ʃ ʒ", refs: "X22",       bands: {TRANS: [0.35, 0.75], GGA: [0.30, 0.65], STY: [0.20, 0.50], SL: [0.20, 0.55]}}
+  palatal_j:   {ipa: j,     refs: "B09",       bands: {GGP: [0.40, 0.80], GGA: [0.40, 0.80], GH: [0.20, 0.50]}}

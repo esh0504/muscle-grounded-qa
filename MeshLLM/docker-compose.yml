@@ -1,0 +1,87 @@
+# MeshLLM baseline — release compose (run from this folder)
+#
+#   cp docker.env.example .env                 (edit DATA_DIR etc.; auto-read)
+#   docker compose build
+#   docker compose run --rm train --list       # experiment list
+#   docker compose run --rm train --smoke ours_en
+#   docker compose run --rm train ours_en      # Stage-2 training
+#   docker compose run --rm eval en            # unseen Set1/2/3 evaluation
+#   docker compose up -d workspace && docker compose exec workspace bash
+#
+# DEV mode (repo bind-mounted over /workspace; edits apply without rebuild):
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d workspace
+#
+# Volumes: ${DATA_DIR} -> /workspace/DATA (dataset, see docs/data.md),
+#          ${OUTPUT_DIR} -> /workspace/outputs, ${CACHE_DIR} -> /workspace/.cache (HF models)
+
+name: ${COMPOSE_PROJECT_NAME:-meshllm}
+
+x-common: &common
+  image: ${IMAGE_NAME:-meshllm/baseline}:${IMAGE_TAG:-latest}
+  build:
+    context: .
+    dockerfile: Dockerfile
+  working_dir: /workspace
+  # Run as the invoking host account so DATA/outputs/.cache files are owned by
+  # YOU, not root (shared servers). Put your ids in .env:
+  #   echo "DOCKER_UID=$(id -u)" >> .env && echo "DOCKER_GID=$(id -g)" >> .env
+  user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
+  environment:
+    HOME: /workspace/.cache
+    NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-all}
+    NVIDIA_DRIVER_CAPABILITIES: compute,utility
+    WANDB_MODE: ${WANDB_MODE:-offline}
+    WANDB_API_KEY: ${WANDB_API_KEY:-}
+  volumes:
+    - ${DATA_DIR:-./DATA}:/workspace/DATA
+    - ${OUTPUT_DIR:-./outputs}:/workspace/outputs
+    - ${CACHE_DIR:-./.cache}:/workspace/.cache
+  gpus: all
+  ipc: host
+  stdin_open: true
+  tty: true
+
+x-init-dep: &init-dep
+  depends_on:
+    init:
+      condition: service_completed_successfully
+
+services:
+  # One-shot permission fixer: runs as root before every service, so outputs/
+  # and .cache/ are writable (777) even if Docker created them root-owned.
+  init:
+    <<: *common
+    user: "0:0"
+    gpus: []
+    restart: "no"
+    entrypoint: ["bash", "-c",
+      "mkdir -p /workspace/outputs /workspace/.cache && chmod -R 777 /workspace/outputs /workspace/.cache 2>/dev/null; chmod 777 /workspace/DATA 2>/dev/null; true"]
+    command: []
+
+  # interactive shell (inspection, custom Hydra runs, tests)
+  workspace:
+    <<: [*common, *init-dep]
+    container_name: ${CONTAINER_NAME:-meshllm}
+    command: ["sleep", "infinity"]
+    restart: unless-stopped
+
+  # Stage-2 training: args go to scripts/train_s2.sh (experiment name + Hydra overrides)
+  train:
+    <<: [*common, *init-dep]
+    profiles: ["run"]
+    entrypoint: ["bash", "scripts/train_s2.sh"]
+    command: ["--list"]
+
+  # Stage-1 pretraining: args go to scripts/train_s1.sh
+  train_s1:
+    <<: [*common, *init-dep]
+    profiles: ["run"]
+    entrypoint: ["bash", "scripts/train_s1.sh"]
+    command: []
+
+  # Unseen-set evaluation: args go to scripts/eval_unseen.sh (en | ko ...)
+  eval:
+    <<: [*common, *init-dep]
+    profiles: ["run"]
+    entrypoint: ["bash", "scripts/eval_unseen.sh"]
+    command: ["en"]

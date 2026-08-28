@@ -1,0 +1,67 @@
+# Stage-1 회귀 헤드 평가 — Set-1 500 mesh 에서 Muscle-EM · Activation MAE
+#
+#   python eval_s1.py                                   # 3D + 2D + 기준선
+#   python eval_s1.py evaluators.rows='[mesh3d]'        # 3D 만
+#   python eval_s1.py evaluators.threshold.mode=fixed evaluators.threshold.value=0.05
+#
+# 평가 mesh 는 Stage-2 표(Baseline.md §6)와 **같은 500개**다 (probe 의 muscle_set family).
+# 산출물: {output_dir}/{metrics.json, preds.jsonl, summary.md}
+
+name: stage1_muscle
+class_name: EvaluatorStage1Muscle
+
+output_dir: outputs/stage1_muscle
+probe_path: DATA/unseentest/set1_probe.jsonl
+family: muscle_set        # mesh 당 정확히 하나인 family → 이게 평가 mesh 목록이 된다
+limit: null               # 디버그용. null = 500개 전부
+batch_size: 64
+
+data:
+  mesh_root: DATA/mesh          # topology.obj · verts/ · {train,val,test}.txt · 활성 CSV
+  png_root: DATA/mesh_png       # 3뷰 렌더 캐시 (build_render_cache.py)
+  image_size: 128                  # cache_{size}.u8 — Stage-1 학습 때와 같아야 한다
+  normalize: true                  # 1 - x. DatasetRender 와 동일
+
+# 회귀 출력 → 활성 집합 이진화 임계값.
+#   val   — val split 에서 Muscle-EM 최대인 값을 고르고 test 500개에 적용 (기본, 정직)
+#   fixed — value 를 그대로 사용
+# ⚠️ test 500개에서 고른 값은 headline 이 아니다. metrics.json 의 oracle_sweep 참고.
+threshold:
+  mode: val
+  split: val
+  n_select: 4000          # val 표본 수 (val 전체는 14,752)
+  objective: muscle_em    # muscle_em | muscle_f1
+  value: 0.05             # mode=fixed 일 때만
+
+# probe 500 은 n_act 를 1/2/3+ 로 균형 맞춘 표본이라 (build_set1_probe.stratified_sample)
+# 실제 test split(3+ 가 79%)보다 쉽다. 같은 임계값으로 split 전체를 한 번 더 재서
+# "held-out 에서 얼마?"의 답을 같이 낸다. n: null = 14,752개 전부.
+full_test:
+  enabled: true
+  split: test
+  n: null
+
+# 표에 넣을 행. rows 로 부분집합을 고른다.
+rows: [mesh3d, zeros, trainmean]
+
+model_rows:
+  - id: mesh3d
+    label: 3D Muscle-Aware
+    input: mesh
+    model_cfg: configs/models/stage1_model.yaml
+    checkpoint: outputs/stage1/checkpoint_best.pt
+
+  # 학습 없는 기준선 (SET1_METRICS_DETAIL.md §8 majority baseline 대응).
+  # ⚠️ gold 의 77% 가 0 이라 "전부 0"이 Activation MAE 에서 train 평균보다 강하다.
+  #    학습된 행은 이 zeros 행을 이겨야 MAE 가 의미를 갖는다.
+  - id: zeros
+    label: All-zeros (trivial)
+    input: constant
+    baseline: zeros
+
+  - id: trainmean
+    label: Train-mean vector
+    input: constant
+    baseline: mean
+    split: train
+    n_fit: 20000

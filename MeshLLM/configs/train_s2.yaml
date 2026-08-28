@@ -1,0 +1,39 @@
+# Stage-2 학습 루트 (Hydra)
+#
+#   python train_s2.py +experiment=ours_ko
+#   python train_s2.py +experiment=ours_ko trainers.epochs=1
+#   torchrun --nproc_per_node=2 train_s2.py +experiment=ours_ko trainers.grad_accum=4
+#
+# 우선순위: 명령줄 인자 > configs/experiment/<name>.yaml > 각 그룹 기본값(여기 defaults)
+
+defaults:
+  - datasets: qa_dataset
+  - models: stage2_model
+  - losses: lm_weighted
+  - trainers: trainer_s2
+  # 그룹 기본값은 **옛 _base_s2.yaml 값**이지 옛 argparse 기본값이 아니다
+  # (bridge=mlp, feature_stats=auto, epochs=10, val.every=2500, wandb=on).
+  # 원본에서도 모든 실험이 extends: _base_s2.yaml 이었으므로 실험 8개의 최종 값은 같다.
+  # 차이는 `+experiment=` 없이 맨몸으로 돌릴 때뿐이다.
+  - override hydra/job_logging: disabled
+  # hydra.run.dir 이 레포 루트라 기본 job_logging 은 여기에 train_s2.log 를 만든다.
+  # 학습 로그는 print 로 나가고 scripts/train_s2.sh 가 $OUT/train.log 로 tee 하므로
+  # 불필요하고, DDP 에서는 두 랭크가 같은 파일에 써서 섞인다.
+  - _self_
+
+seed: 42
+name: stage2
+output_dir: outputs/stage2
+
+run:
+  do_train: true
+  smoke_test: false
+
+hydra:
+  run:
+    dir: .            # 작업 디렉토리를 바꾸지 않는다 — 상대경로(DATA/, outputs/, configs/)가
+                      # 코드 전반에 박혀 있어 Hydra 기본 동작(outputs/날짜/시간 으로 chdir)이면
+                      # 전부 깨진다. train_s1.py 도 같은 이유로 이 설정이 필요하다.
+  output_subdir: null
+  job:
+    chdir: false

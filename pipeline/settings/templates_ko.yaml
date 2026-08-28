@@ -1,0 +1,116 @@
+# ============================================================================
+# USER SETTING — Korean QA templates (Step 4). Edit text freely; keep the
+# {placeholders} — they are filled with facts computed by the pipeline.
+# Numbers and full muscle names are the surface contract that the record-based
+# faithfulness check verifies, so keep them rendered verbatim.
+# Adding a language = copying this file to templates_<lang>.yaml.
+# ============================================================================
+
+lang: ko
+files:
+  physics_prefix: qa            # -> qa_{shard:05d}.jsonl
+  feature_a1_prefix: qa_A1      # -> qa_A1_{shard:05d}.jsonl
+  b3_filename: qa_B3.jsonl
+
+# Full display names rendered inside every answer (fixed surface contract)
+muscle_names:
+  GGP: "이설근 후부(genioglossus posterior)"
+  GGM: "이설근 중부(genioglossus medius)"
+  GGA: "이설근 전부(genioglossus anterior)"
+  STY: "경돌설근(styloglossus)"
+  GH: "이설골근(geniohyoid)"
+  MH: "악설골근(mylohyoid)"
+  HG: "설골설근(hyoglossus)"
+  VERT: "수직근(verticalis)"
+  TRANS: "횡근(transversus)"
+  IL: "하종설근(inferior longitudinal)"
+  SL: "상종설근(superior longitudinal)"
+
+# Ground-truth anatomical action per muscle (used in attribution / single turns)
+muscle_actions:
+  GGP: "설배를 상승·전진"
+  GGM: "설체를 상승"
+  GGA: "전방을 낮추고 홈을 만들며 설첨을 전진"
+  STY: "설배를 후퇴·거상"
+  GH: "설골을 전상방으로 당김"
+  MH: "구강저·설체를 거상"
+  HG: "설체를 하강·후퇴"
+  VERT: "혀를 수직으로 눌러 납작하게"
+  TRANS: "좌우로 좁혀 상방·전방으로 늘림"
+  IL: "설첨을 낮추고 혀를 단축·후퇴"
+  SL: "설첨을 올리고 혀를 단축"
+
+# Movement direction words ({h}/{v} slots; also used for the counterfactual)
+direction_words: {advance: "전진", retract: "후퇴", raise: "상승", lower: "하강"}
+
+# ---------------------------------------------------------------- physics chain
+physics:
+  attribution:            # A2 — muscle attribution
+    q: "이 혀 모양을 만든 근육들과 각 작용은?"
+    a: "이 형상을 구동한 근육은 {muscles} 입니다. 각 작용 — {actions}."
+    action_item: "{muscle}: {action}"
+    list_sep: ", "
+    action_sep: "; "
+  identifiability:        # D1 — motor-equivalence abstention
+    q: "이 형상만 보고 근육 활성을 유일하게 특정할 수 있어?"
+    a: "아니요. 여러 근육 조합이 비슷한 형상을 만들 수 있어(motor equivalence) 유일하게 결정할 수 없습니다. 위는 이 형상을 만든 한 가지 정형 패턴입니다."
+  volume:                 # C1 — incompressibility ({vol_ratio} preformatted .3f)
+    q: "혀가 변형될 때 부피는 어떻게 되고, 그게 형상에 어떤 제약을 줘?"
+    a: "혀 조직은 거의 비압축성이라 변형 중에도 부피가 보존됩니다(vol_ratio={vol_ratio}, 약 1.0). 따라서 한 부위가 밀리면 다른 부위가 보상해야 합니다 — 여기서는 {region} 부위가 가장 크게 {h}·{v}했고, 부피보존으로 인접 부위의 반대 이동으로 상쇄됩니다."
+  single:                 # B1 — single-muscle intervention (displacements .2f, mm)
+    q: "{muscle}만 수축하면 혀가 어떻게 움직여?"
+    a: "{muscle}이 수축하면({action}), 기준 대비 {region} 부위가 가장 크게 {h}·{v}합니다. 부위별 변위(dx/dz mm): front {front_dx}/{front_dz}, mid {mid_dx}/{mid_dz}, back {back_dx}/{back_dz}. 단일근육 통제개입입니다."
+  counterfactual:         # B2 — neighbor delta vs base mesh (a_negligible under 0.1mm)
+    q: "이 상태에서 근육 활성을 {delta}만큼 바꾸면 혀 형상이 어떻게 변할까?"
+    a_effect: "{region} 부위가 주로 {h}·{v}합니다(변화량 dx {dx}mm, dz {dz}mm). 해당 근육 변화만의 순수 효과입니다(나머지 고정, 기준 메쉬 #{base} 대비)."
+    a_negligible: "이 근육 변화({delta})의 순효과는 미미합니다 — 부위별 평균 변위 변화가 0.1mm 미만(dx {dx}mm, dz {dz}mm)으로, 형상이 거의 그대로 유지됩니다(기준 메쉬 #{base} 대비, 나머지 근육 고정). 해당 근육이 이 자세에서 지배적이지 않음을 뜻합니다."
+  prescriptive:           # target-directed correction toward a Step-1 anchor
+    q: "이 혀 상태에서 /{target}/ 발음을 하려면 어떻게 조음하는 게 좋았을까?"
+    a: "/{target}/({label})의 목표 근육 패턴과 현재를 비교하면 — {body}. 그러면 혀가 /{target}/에 맞는 협착·자세로 이동합니다."
+    increase_prefix: "더 수축: "
+    decrease_prefix: "이완: "
+    already_close: "현재 근육 배치가 이미 목표에 가깝습니다."
+    list_sep: ", "
+    part_sep: "; "
+
+# ------------------------------------------------------------------ feature QA
+feature:                  # A1 — 3-turn quantitative shape description
+  q1: "이 혀 표면 형상을 정량적으로 기술해줘 — 협착 위치·최소 간극·최고점·도밍은?"
+  a1: "이 자세의 혀 등쪽 윤곽을 팔라트 호길이로 정규화해 기술하면 — 최대 협착은 {place} 위치(정규화 위치 cl_t={cl_t}, 0=앞·1=뒤)에서 나타나고 그 지점의 팔라트 최소 간극은 cd_min={cd_min} 입니다. 등쪽 최고점은 앞뒤 위치 peak_xn={peak_xn}, 높이 peak_z={peak_z} 에 있고, 아치 정도(도밍)는 {doming}, 앞→뒤 기울기 tilt={tilt} 입니다. 부위별 높이는 front {h_front}, mid {h_mid}, back {h_back} 로 {hi_reg} 부위가 가장 높습니다."
+  q2: "이 협착 위치는 대략 어떤 조음 부위에 해당해?"
+  a2: "협착이 {place} 부위(cl_t={cl_t})에 형성되어 있어, 형상만으로 보면 {place} 계열 조음({place_example})과 정합적입니다. 다만 이는 기하 기반 근사이며, 실제 음소는 근육 활성·공기역학까지 함께 봐야 확정됩니다."
+  q3: "혀 표면의 전체적인 곡률·길이 특징은?"
+  a3: "표면의 정규화 호길이 arc_len={arc_len}, 최대 곡률 curv_peak={curv_peak} 로, 윤곽이 {curv_word}하게 휩니다. 최고점 높이 peak_z={peak_z} 와 함께 보면 {doming_word} 등쪽 형상입니다."
+  place_words: {front: "전방", mid: "중간", back: "후방"}       # cl_t < 0.34 / < 0.67 / else
+  place_examples: {front: "치경음(/s, t, d/)", mid: "경구개음(/ɕ, j/)", back: "연구개음(/k, g/)"}
+  curv_words: {gentle: "완만", sharp: "급격"}                   # curv_peak < 120 / else
+  doming_words: {flat: "납작한", domed: "아치형의"}             # doming < 0.08 / else
+
+b3:                       # B3 — dose-response sweeps (tier chosen by monotonicity/rho)
+  q_single: "{muscle} 하나만 활성시키고 세기를 {lv0}에서 {lv1}까지 키우면 혀 변형 크기는 어떻게 반응해? (dose-response)"
+  q_effort: "{muscles} 을(를) 함께 활성시키되 전체 세기를 {lv0}에서 {lv1}까지 높이면 혀 변형 크기는 어떻게 변해? (dose-response)"
+  seq_item: "{lv}→{resp}mm"
+  seq_sep: ", "
+  a_strict: "{lead} 활성(용량)이 커질수록 rest 대비 평균 부위 변위(반응)가 단조 증가합니다: {seq}. 단조 증가(Spearman ρ={rho})로, 근육 활성과 변형 크기 사이의 일관된 dose-response 관계를 보여줍니다. 증가폭은 점차 줄어드는 포화형 곡선입니다."
+  a_near: "{lead} 활성이 커질수록 변위가 거의 단조적으로 증가합니다: {seq}. 전체 추세는 뚜렷한 증가(Spearman ρ={rho})이며, 미세한 국소 요동만 있을 뿐 방향은 일관됩니다 — dose-response 관계가 성립합니다."
+  a_partial: "{lead} 활성이 커지면 대체로 변위가 증가하지만 완전한 단조는 아닙니다: {seq} (Spearman ρ={rho}). 일부 구간에서 포화 또는 역전이 나타나며, 이는 다른 근육·기하 제약과의 상호작용 때문입니다."
+
+# ------------------------------------------------- mask_spans (span tagging)
+# movement/region matching: mode "find" = substring, "word" = \b-bounded.
+# number_roles: first context key found within context_chars before a number
+# assigns its role.
+spans:
+  physics:
+    movement_words: ["전진", "후퇴", "상승", "하강", "보존", "보상", "상쇄"]
+    movement_mode: find
+    region_words: ["front", "mid", "back"]
+    region_mode: find
+    number_roles: [["cl_t", "cl_t"], ["cd_min", "cd_min"], ["vol_ratio", "vol_ratio"], ["dx", "dx_mm"], ["dz", "dz_mm"]]
+    context_chars: 12
+  feature:
+    movement_words: ["단조 증가", "단조적으로 증가", "증가", "감소", "포화", "역전", "상승", "하강", "전진", "후퇴", "납작", "아치", "보존"]
+    movement_mode: find
+    region_words: ["front", "mid", "back", "전방", "중간", "후방"]
+    region_mode: find
+    number_roles: [["cl_t", "cl_t"], ["cd_min", "cd_min"], ["peak_xn", "peak_xn"], ["peak_z", "peak_z"], ["도밍", "doming"], ["doming", "doming"], ["tilt", "tilt"], ["front", "h_front"], ["mid", "h_mid"], ["back", "h_back"], ["arc_len", "arc_len"], ["curv_peak", "curv_peak"], ["ρ", "rho"], ["mm", "disp_mm"], ["→", "disp_mm"]]
+    context_chars: 14
